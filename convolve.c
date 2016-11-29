@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 struct AudioFileHeader readHeaderOfAudioFile(FILE* file);
+void testWrite();
 
 struct  AudioFileHeader
 {
@@ -28,7 +29,9 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
   int j = 0;
   int i = 0;
   struct AudioFileHeader audioHeader;
-  fscanf(file, "%d", &i);
+  //fscanf(file, "%d", &i);
+
+  fread(&i, sizeof(int), 1, file);
   while (!feof(file))
   {
     printf("%d\n", i);
@@ -58,15 +61,35 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
       audioHeader.subchunk2ID = i;
     else if (j == 10)
       audioHeader.subchunk2Size = i;
-    fscanf(file, "%d", &i);
+    fread(&i, sizeof(int), 1, file);
     j++;
   }
   fclose(file);
   return audioHeader;
 }
 
+
+void testWrite()
+{
+  int write = 134;
+
+  printf("About to make the test file");
+
+  FILE* file = fopen("tmp","w+" );
+  printf("Test file has been created");
+
+  fwrite(&write, sizeof(write), 1, file );
+  fclose(file);
+
+  printf("Test file has been made");
+
+}
+
+
 int main(int argc, char * argv[])
 {
+  
+
   /*
   Testing splitting an int
   int num = 0b00110010;
