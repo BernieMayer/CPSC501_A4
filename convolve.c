@@ -4,6 +4,9 @@
 
 struct AudioFileHeader readHeaderOfAudioFile(FILE* file);
 void testWrite();
+void convolve(float x[], int N, float h[], int M, float y[], int P);
+long getFileSize(FILE* file);
+void readFile(float fileData[], int size, FILE* file, int offset);
 
 struct  AudioFileHeader
 {
@@ -24,6 +27,18 @@ struct  AudioFileHeader
 };
 
 
+void readFile(float fileData[], int size, FILE* file, int offset)
+{
+  fseek(file, offset, SEEK_SET);
+
+  int i;
+
+  for (i = 0; i < size; i++)
+  {
+    fread(&fileData[i], sizeof(float), 1, file);
+  }
+}
+
 struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
 {
   int j = 0;
@@ -34,7 +49,7 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
   fread(&i, sizeof(int), 1, file);
   while (!feof(file))
   {
-    printf("%d\n", i);
+    //printf("%d\n", i);
     if (j == 0)
       audioHeader.chunkId = i;
     else if (j == 1)
@@ -69,6 +84,37 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
 }
 
 
+//This convolve function is based on the one in the CPSC 501 lecture slides
+void convolve(float x[], int N, float h[], int M, float y[], int P)
+{
+  int n,m;
+
+  /* Clear output buffer y[] */
+  for ( n = 0; n < P; n++)
+    y[n] = 0.0;
+
+    /*Outer loop process each input value x[n] */
+    for ( n = 0; n <N; n++) {
+
+      //Inner loop process x[n] with each sample of h[n]
+      for (m = 0; m <M; m++)
+      {
+        y[n+m] += x[n] + h[m];
+      }
+    }
+}
+
+// gets the file size in bytes
+long getFileSize(FILE* file)
+{
+  //fopen(file);
+  fseek(file, 0, SEEK_END);
+  long result = ftell(file);
+  rewind(file);
+  //fclose(file)
+  return result;
+}
+
 void testWrite()
 {
   int write = 134;
@@ -88,7 +134,7 @@ void testWrite()
 
 int main(int argc, char * argv[])
 {
-  
+
 
   /*
   Testing splitting an int
@@ -106,6 +152,18 @@ int main(int argc, char * argv[])
       printf("The file name is %s \n" , fileName);
       audioFile = fopen(fileName, "r");
       struct AudioFileHeader audioHeader = readHeaderOfAudioFile(audioFile);
+      printf("The size of audioHeader is %i \n", sizeof(audioHeader));
+      //seek past the header...
+
+      rewind(audioFile);
+
+      int size = getFileSize(audioFile) - sizeof(audioHeader);
+
+      printf("The size of the data of the file is %i " , size);
+      float inputData[size];
+
+      readFile(inputData, size, audioFile, sizeof(audioFile));
+
   }
 
 
