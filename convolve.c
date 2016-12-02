@@ -33,10 +33,7 @@ void readFile(float fileData[], int size, FILE* file, int offset)
 
   int i;
 
-  for (i = 0; i < size; i++)
-  {
-    fread(&fileData[i], sizeof(float), 1, file);
-  }
+  
 }
 
 struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
@@ -46,7 +43,8 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
   struct AudioFileHeader audioHeader;
   //fscanf(file, "%d", &i);
 
-  fread(&i, sizeof(int), 1, file);
+  fread(&audioHeader, sizeof(struct AudioFileHeader), 1, file);
+  /*
   while (!feof(file))
   {
     //printf("%d\n", i);
@@ -70,8 +68,9 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
       audioHeader.byteRate = i;
     else if (j == 8)
     {
-      audioHeader.blockAlign = i & 0xF;
-      audioHeader.bitsPerSample = (i >> 4) & 0xF;
+      audioHeader.blockAlign =  (short) i & 0xF;
+      audioHeader.bitsPerSample = (short) (i >> 4) & 0xF;
+      printf(" j is 8 i is %i \n" ,i);
     } else if ( j == 9)
       audioHeader.subchunk2ID = i;
     else if (j == 10)
@@ -79,7 +78,8 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
     fread(&i, sizeof(int), 1, file);
     j++;
   }
-  fclose(file);
+  */
+  //fclose(file);
   return audioHeader;
 }
 
@@ -112,6 +112,7 @@ long getFileSize(FILE* file)
   long result = ftell(file);
   rewind(file);
   //fclose(file)
+  printf("The file size has been calculated");
   return result;
 }
 
@@ -155,14 +156,14 @@ int main(int argc, char * argv[])
       printf("The size of audioHeader is %i \n", sizeof(audioHeader));
       //seek past the header...
 
-      rewind(audioFile);
+      
+      printf("The size of the data chunk is %i \n", audioHeader.subchunk2Size);
+      printf("The number of samples per data chunk is %hi \n", audioHeader.bitsPerSample);
+      printf("The number of channels is %hi", audioHeader.numChannels);
 
-      int size = getFileSize(audioFile) - sizeof(audioHeader);
+      float inputData[audioHeader.subchunk2Size];
 
-      printf("The size of the data of the file is %i " , size);
-      float inputData[size];
-
-      readFile(inputData, size, audioFile, sizeof(audioFile));
+      //readFileDataIntoArray(inputData, size, audioFile, sizeof(audioFile));
 
   }
 
