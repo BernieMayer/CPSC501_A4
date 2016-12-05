@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <float.h>
+#include <limits.h>
 #include <time.h>
 #include <math.h>
 
@@ -22,6 +23,10 @@ void readFile(float fileData[], int size, FILE* file, int offset);
 void readFileDataIntoArray(short inputData[],int sizeOfInputData,  struct AudioFileHeader header, FILE* file);
 void normalizeArray(float array[], int size);
 void convertShortArrayToFloat(short short_Array[], int size,  float float_Array[]);
+
+void divideArrayByItsCurrentMax(float array[], int size);
+void denormalizeArray(float array[], int size);
+void writeToWaveFile(float data[], int channels, int numberSamples, double outputRate, FILE* file);
 
 size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
@@ -107,7 +112,7 @@ void convolve(float x[], int N, float h[], int M, float y[], int P)
 
     /*Outer loop process each input value x[n] */
     for ( n = 0; n <N; n++) {
-	     //printf("The convolution is %f%% done \n", ((float) n/ (float) N) * 100);
+	    //printf("The convolution is %f%% done \n", ((float) n/ (float) N) * 100);
       //Inner loop process x[n] with each sample of h[n]
       for (m = 0; m <M; m++)
       {
@@ -169,49 +174,53 @@ void normalizeArray(float array[], int size)
 
 	for (i = 0; i < size; i++)
 	{
-		array[i] = array[i]/(65535);
+		array[i] = array[i]/(SHRT_MAX);
 	}
 
 }
 
-
-
-
-
-/******************************************************************************
-*       This code snippet was taken from the file testtone.c
-*       written by Leonard Manzara
-*
-*       function:       writeWaveFileHeader
-*
-*       purpose:        Writes the header in WAVE format to the output file.
-*
-*       arguments:      channels:  the number of sound output channels
-*                       numberSamples:  the number of sound samples
-*                       outputRate:  the sample rate
-*                       outputFile:  the output file stream to write to
-*
-*       internal
-*       functions:      fwriteIntLSB, fwriteShortLSB
-*
-*       library
-*       functions:      ceil, fputs
-*
-******************************************************************************/
-
-
-
-void writeWaveFileContent(short data[],int size, FILE* file)
+//This function will divide the array by the current absolute maximum of the
+//array
+void divideArrayByItsCurrentMax(float array[], int size)
 {
-
-  int i ;
-
-  for (i = 0; i < size; i++)
+  int max = array[0];   //Assume user will have a non zero sized array
+  for (int i = 0; i < size; i ++)
   {
-    fwriteShortLSB(data[i], file);
+    if (abs(array[i]) > max)
+    {
+      max = abs(array[i]);
+    }
   }
 
+  for (int i = 0; i < size; i++)
+  {
+    array[i] = array[i]/max;
+  }
 }
+
+//This fucntion will multiply each element in the float
+// array by 65535 which is the maximum
+void denormalizeArray(float array[], int size)
+{
+  for (int i = 0; i < size; i++)
+  {
+    array[i] = array[i] * (SHRT_MAX -1); // SHRT_MAX -1 is for safe measure so that the numbers don't overflow
+  }
+}
+
+//This function will write to the wav file
+// the header and the data
+void writeToWaveFile(float data[], int channels, int numberSamples, double outputRate, FILE* file)
+{
+  writeWaveFileHeader(channels, numberSamples, outputRate, file); //use the writeWaveFileHeader function to write to the file
+  //write to the file the data content
+}
+
+
+
+
+
+
 /******************************************************************************
 *
 *       function:       writeWaveFileHeader
