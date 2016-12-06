@@ -27,9 +27,10 @@ void convertShortArrayToFloat(short short_Array[], int size,  float float_Array[
 void divideArrayByItsCurrentMax(float array[], int size);
 void denormalizeArray(float array[], int size);
 void writeToWaveFile(float data[], int channels, int numberSamples, double outputRate, FILE* file);
-
+void writeWaveFileHeader(int channels, int numberSamples, double outputRate, FILE *outputFile);
 size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
+void print_vector(char *title, float x[], int N);
 
 
 struct  AudioFileHeader
@@ -64,6 +65,7 @@ void readFile(float fileData[], int size, FILE* file, int offset)
 // float array
 void convertShortArrayToFloat(short short_Array[], int size, float float_Array[])
 {
+  int i = 0;
 
   for (int i = 0; i < size; i++)
   {
@@ -116,7 +118,7 @@ void convolve(float x[], int N, float h[], int M, float y[], int P)
       //Inner loop process x[n] with each sample of h[n]
       for (m = 0; m <M; m++)
       {
-        y[n+m] += x[n] + h[m];
+        y[n+m] += x[n] * h[m];
       }
     }
 }
@@ -174,8 +176,19 @@ void normalizeArray(float array[], int size)
 
 	for (i = 0; i < size; i++)
 	{
-		array[i] = array[i]/(SHRT_MAX);
+
+    float temp = (float)array[i]/( (float)( 2 *SHRT_MAX));
+    if (temp > 1.0)
+    {
+      array[i] = 1.0;
+    } else {
+      array[i] = -1.0;
+    }
+    array[i] = temp;
+
 	}
+
+
 
 }
 
@@ -191,7 +204,7 @@ void divideArrayByItsCurrentMax(float array[], int size)
       max = abs(array[i]);
     }
   }
-
+  printf("Max is %u", max);
   for (int i = 0; i < size; i++)
   {
     array[i] = array[i]/max;
@@ -214,6 +227,11 @@ void writeToWaveFile(float data[], int channels, int numberSamples, double outpu
 {
   writeWaveFileHeader(channels, numberSamples, outputRate, file); //use the writeWaveFileHeader function to write to the file
   //write to the file the data content
+  printf("done making the header \n");
+  for (int i = 0;  i < numberSamples; i++)
+  {
+    fwriteShortLSB((short)data[i], file);
+  }
 }
 
 
@@ -352,10 +370,90 @@ size_t fwriteShortLSB(short int data, FILE *stream)
     return fwrite(array, sizeof(unsigned char), 2, stream);
 }
 
+void testConvolve()
+{
+  float input_signal[100], impulse_response[20], output_signal[120];
+  int input_size, impulse_size, output_size;
+
+  /*  Create an example input signal  */
+  input_signal[0] = 1.0;
+  input_signal[1] = 0.5;
+  input_signal[2] = 0.25;
+  input_signal[3] = 0.125;
+  input_size = 4;
+
+
+
+  /*  Create an "identity" impulse response.  The output should be
+      the same as the input when convolved with this  */
+  impulse_response[0] = 1.0;
+  impulse_size = 1;
+
+  output_size = input_size + impulse_size - 1;
+
+  convolve(input_signal, input_size, impulse_response, impulse_size,
+     output_signal, output_size);
+
+  int result = 1;
+
+  for (int i = 0; i < output_size; i++)
+  {
+    if (output_signal[i] != input_signal[i])
+      printf("Convolution test failed, expected %f but got %f", input_signal[i], output_signal[i]);
+  }
+  if (result)
+  {
+    printf("Convolve test has succeeded \n");
+  }
+}
+
+void testConvolve2()
+{
+
+  float input_signal[100], impulse_response[20], output_signal[120];
+  int input_size, impulse_size, output_size;
+
+  /*  Create an example input signal  */
+  input_signal[0] = 1.0;
+  input_signal[1] = 0.5;
+  input_signal[2] = 0.25;
+  input_signal[3] = 0.125;
+  input_size = 4;
+
+  /*  Create an "echo effect".  The output will contain the original signal
+      plus a copy delayed by 2 samples and 1/2 the amplitude.  The original
+      and copy will overlap starting at the 3rd sample  */
+  impulse_response[0] = 1.0;
+  impulse_response[1] = 0.0;
+  impulse_response[2] = 0.5;
+  impulse_size = 3;
+
+  /*  Set the expected size of the output signal  */
+  output_size = input_size + impulse_size - 1;
+
+  /*  Do the convolution, and print the output signal  */
+  convolve(input_signal, input_size, impulse_response, impulse_size,
+     output_signal, output_size);
+
+
+    print_vector("echo",output_signal, output_size);
+}
+
+
+void print_vector(char *title, float x[], int N)
+{
+  int i;
+
+  printf("\n%s\n", title);
+  printf("Vector size:  %-d\n", N);
+  printf("Sample Number \tSample Value\n");
+  for (i = 0; i < N; i++)
+    printf("%-d\t\t%f\n", i, x[i]);
+}
 int main(int argc, char * argv[])
 {
 
-
+  testConvolve2();
   /*
   Testing splitting an int
   int num = 0b00110010;
@@ -397,6 +495,8 @@ int main(int argc, char * argv[])
       //float inputData[sizeOfInputData];
       readFileDataIntoArray(inputDataShort, sizeOfInputData, inputAudioHeader, inputFile);
 
+
+
       float inputData[sizeOfInputData];
 
       convertShortArrayToFloat(inputDataShort, sizeOfInputData, inputData);
@@ -404,6 +504,7 @@ int main(int argc, char * argv[])
       //This block of code initializes the IR file data
 
       char* IRFileName = argv[2];
+      printf("The IRFile nams is %s \n", IRFileName);
       IRFile = fopen(IRFileName, "r");
 
       struct AudioFileHeader IR_AudioHeader = readHeaderOfAudioFile(IRFile);
@@ -440,28 +541,54 @@ int main(int argc, char * argv[])
 
       //normalize the arrays to be between 1 and -1..
       normalizeArray(inputData, sizeOfInputData);
-      normalizeArray(IR_Data, numSamplesIR);
 
+      if (debug) {
       for (int i = 0; i < sizeOfInputData; i++)
       {
         if (inputData[i] > 1.0 || inputData[i] < -1.0)
         {
-          printf("normalization failed...");
+          printf("normalization failed... inputData[%u] is %f \n", i ,inputData[i] );
+
         }
       }
+    }
+
+      if (debug)
+      {
+        //pass through code
+        numSamplesIR = 1;
+        IR_Data[0] = 1.0;
 
 
+
+      }
 
 
       int sizeOutput = sizeOfInputData + numSamplesIR -1;
       printf("The sizeOutput is %u", sizeOutput);
       float outputData[sizeOutput];
 
+
+      printf("Starting the convolution \n");
+      printf("sizeOutput is %u while sizeOfInputData is %u and numSamplesIR is %u", sizeOutput, sizeOfInputData, numSamplesIR);
       convolve(inputData, sizeOfInputData, IR_Data, numSamplesIR, outputData, sizeOutput);
 
+      char* outputFileName = argv[3];
+      outputFile = fopen( outputFileName, "w");
 
+      printf("The output file name is %s \n" , outputFileName);
 
+      if (outputFile == NULL)
+      {
+        printf("what... \n");
+      }
 
+      //divideArrayByItsCurrentMax(outputData, sizeOutput);
+      //denormalizeArray(outputData, sizeOutput);
+
+      print_vector("Just a test...", outputData, sizeOutput);
+
+      writeToWaveFile(outputData, 1, sizeOutput, (double) IR_AudioHeader.sampleRate, outputFile);
 
 
 
@@ -469,6 +596,9 @@ int main(int argc, char * argv[])
 
       printf("Done the convolution \n");
 
+      fclose(inputFile);
+      fclose(IRFile);
+      fclose(outputFile);
       long finishTime = time(NULL);
 
       printf("The convolution took %li ", finishTime - startTime);
