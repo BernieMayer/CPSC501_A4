@@ -31,6 +31,7 @@ void writeWaveFileHeader(int channels, int numberSamples, double outputRate, FIL
 size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
 void print_vector(char *title, float x[], int N);
+void testIdentityConvole();
 
 
 struct  AudioFileHeader
@@ -228,9 +229,13 @@ void writeToWaveFile(float data[], int channels, int numberSamples, double outpu
   writeWaveFileHeader(channels, numberSamples, outputRate, file); //use the writeWaveFileHeader function to write to the file
   //write to the file the data content
   printf("done making the header \n");
+  int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
   for (int i = 0;  i < numberSamples; i++)
   {
-    fwriteShortLSB((short)data[i], file);
+
+    float value = data[i];
+    short int sampleValue = rint(value * maximumValue);
+    fwriteShortLSB(sampleValue, file);
   }
 }
 
@@ -436,6 +441,7 @@ void testConvolve2()
      output_signal, output_size);
 
 
+
     print_vector("echo",output_signal, output_size);
 }
 
@@ -450,8 +456,62 @@ void print_vector(char *title, float x[], int N)
   for (i = 0; i < N; i++)
     printf("%-d\t\t%f\n", i, x[i]);
 }
+
+void testIdentityConvole()
+{
+  FILE* inputFile;
+  FILE* IRFile;
+  FILE* outputFile;
+
+
+  inputFile = fopen("test.wav", "r");
+
+  struct AudioFileHeader inputAudioHeader = readHeaderOfAudioFile(inputFile);
+
+  int sizeOfInputData = inputAudioHeader.subchunk2Size/( (float)(inputAudioHeader.bitsPerSample/ 8) * inputAudioHeader.numChannels); // Also is the number of Samples
+  short inputDataShort[sizeOfInputData];
+
+
+  printf("The number of bits per sample is %i", inputAudioHeader.bitsPerSample);
+  printf("The size of a short is %i", sizeof(short));
+  printf("The size of subchunk2Size is %i", inputAudioHeader.subchunk2Size);
+
+
+  readFileDataIntoArray(inputDataShort, sizeOfInputData, inputAudioHeader, inputFile);
+
+  float inputData[sizeOfInputData];
+  convertShortArrayToFloat(inputDataShort, sizeOfInputData, inputData);
+  normalizeArray(inputData, sizeOfInputData);
+
+
+  float ir_data[1];
+  ir_data[0] = 1.0;
+
+  int sizeOutput = sizeOfInputData + 1 - 1;
+  float outputData[sizeOutput];
+
+  //convolve(inputData, sizeOfInputData, outputData, 1, outputData, sizeOutput);
+
+
+  outputFile = fopen("test6.wav", "w");
+  writeToWaveFile(outputData, 1, sizeOutput, (double) inputAudioHeader.sampleRate, outputFile);
+
+
+  printf("done running the test code for test identity Convolve \n");
+
+  fclose(inputFile);
+  fclose(outputFile);
+
+}
+
 int main(int argc, char * argv[])
 {
+
+  if (strcmp(argv[1], "-d") == 0)
+  {
+    testIdentityConvole();
+  }
+
 
   testConvolve2();
   /*
@@ -468,7 +528,7 @@ int main(int argc, char * argv[])
   FILE* inputFile;
   FILE* IRFile;
   FILE* outputFile;
-  int debug = 1;
+  int debug = 0;
   if (argc > 2)
   {
 	  //This block of code initializes the inputFile data
@@ -480,7 +540,7 @@ int main(int argc, char * argv[])
       //as the program see fit
       // this data is stored in a structure.
       struct AudioFileHeader inputAudioHeader = readHeaderOfAudioFile(inputFile);
-	    int sizeOfInputData = inputAudioHeader.subchunk2Size/(inputAudioHeader.bitsPerSample * inputAudioHeader.numChannels); // Also is the number of Samples
+	    int sizeOfInputData = inputAudioHeader.subchunk2Size/((float)(inputAudioHeader.bitsPerSample/8) * inputAudioHeader.numChannels); // Also is the number of Samples
       //int sizeOfInputData = 100;
 
       if (debug) {
@@ -541,6 +601,7 @@ int main(int argc, char * argv[])
 
       //normalize the arrays to be between 1 and -1..
       normalizeArray(inputData, sizeOfInputData);
+      normalizeArray(IR_Data, numSamplesIR);
 
       if (debug) {
       for (int i = 0; i < sizeOfInputData; i++)
@@ -552,17 +613,6 @@ int main(int argc, char * argv[])
         }
       }
     }
-
-      if (debug)
-      {
-        //pass through code
-        numSamplesIR = 1;
-        IR_Data[0] = 1.0;
-
-
-
-      }
-
 
       int sizeOutput = sizeOfInputData + numSamplesIR -1;
       printf("The sizeOutput is %u", sizeOutput);
@@ -578,15 +628,12 @@ int main(int argc, char * argv[])
 
       printf("The output file name is %s \n" , outputFileName);
 
-      if (outputFile == NULL)
-      {
-        printf("what... \n");
-      }
 
-      //divideArrayByItsCurrentMax(outputData, sizeOutput);
+
+      divideArrayByItsCurrentMax(outputData, sizeOutput);
       //denormalizeArray(outputData, sizeOutput);
 
-      print_vector("Just a test...", outputData, sizeOutput);
+      //print_vector("Just a test...", outputData, sizeOutput);
 
       writeToWaveFile(outputData, 1, sizeOutput, (double) IR_AudioHeader.sampleRate, outputFile);
 
