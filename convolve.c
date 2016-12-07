@@ -28,6 +28,7 @@ void divideArrayByItsCurrentMax(float array[], int size);
 void denormalizeArray(float array[], int size);
 void writeToWaveFile(float data[], int channels, int numberSamples, double outputRate, FILE* file);
 void writeWaveFileHeader(int channels, int numberSamples, double outputRate, FILE *outputFile);
+void writeWavFileContent(float data[], int numberSamples, FILE* file );
 size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
 void print_vector(char *title, float x[], int N);
@@ -229,6 +230,11 @@ void writeToWaveFile(float data[], int channels, int numberSamples, double outpu
   writeWaveFileHeader(channels, numberSamples, outputRate, file); //use the writeWaveFileHeader function to write to the file
   //write to the file the data content
   printf("done making the header \n");
+  writeWavFileContent(data, numberSamples, file);
+}
+
+void writeWavFileContent(float data[], int numberSamples,FILE* file )
+{
   int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
   for (int i = 0;  i < numberSamples; i++)
   {
