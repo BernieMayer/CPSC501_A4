@@ -33,6 +33,9 @@ size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
 void print_vector(char *title, float x[], int N);
 void testIdentityConvole();
+void convertFloatArrayToShort(float float_Array[], int size, short short_Array[]);
+void writeToWaveFile(float data[], int channels, int numberSamples, double outputRate, FILE* file);
+//void writeWavFileContent(short data_short[], int channels, int numberSamples, double outputRate, FILE *file);
 
 
 struct  AudioFileHeader
@@ -105,6 +108,53 @@ struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
 }
 
 
+//Convolve function using Fast Fourier Transform
+//(might want to convoert to doubles)
+void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
+{
+
+  //make segments
+    //Note: the segments should be close to the size of h[]
+
+
+
+  const int SEGMENT_SIZE = pow(2, 14);
+
+  if (M > SEGMENT_SIZE)
+  {
+    printf("The segment size needs to be changed since it will not fill the entire IR \n");
+  }
+
+  int numSegmentsX = ceil((double) N/ (double) SEGMENT_SIZE);
+
+  float segmentArray_x[numSegmentsX][SEGMENT_SIZE]; //Index into this array
+  //By indexing into the segment then from each segment into each
+
+  float padded_h[SEGMENT_SIZE];
+  for (int j = 0; j < SEGMENT_SIZE; j++)
+  {
+    //Pad the h array so that it is SEGMENT_SIZE
+    if (j < M)
+      padded_h[j] = h[j];
+    else
+      padded_h[j] = 0.0f;
+  }
+
+  //For each segment..
+  for (int i = 0; i < numSegmentsX; i++)
+  {
+    //Apply fast Fourier Transform
+
+
+  }
+
+
+
+  //Apply Overlap add method
+
+  //Convert back to Time domain
+}
+
 //This convolve function is based on the one in the CPSC 501 lecture slides
 void convolve(float x[], int N, float h[], int M, float y[], int P)
 {
@@ -164,7 +214,7 @@ void readFileDataIntoArray(short inputData[], int sizeOfInputData, struct AudioF
 	fseek(file, sizeof(header), SEEK_SET);
 	for (i = 0; i < sizeOfInputData; i++)
 	{
-		fread(&inputData[i], bitsPerSample, 1, file);
+		fread(&inputData[i], sizeof(short), 1, file);
 	}
 
 
@@ -179,7 +229,7 @@ void normalizeArray(float array[], int size)
 	for (i = 0; i < size; i++)
 	{
 
-    float temp = (float)array[i]/( (float)( 2 *SHRT_MAX));
+    float temp = (float)array[i]/( (float)(SHRT_MAX));
     if (temp > 1.0)
     {
       array[i] = 1.0;
@@ -238,12 +288,52 @@ void writeWavFileContent(float data[], int numberSamples,FILE* file )
   int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
   for (int i = 0;  i < numberSamples; i++)
   {
-
-    float value = data[i];
-    short int sampleValue = rint(value * maximumValue);
+    double value = data[i];
+    short int sampleValue = rint(value * 0.5f * maximumValue);
+    //printf("sampleValue is %f");
     fwriteShortLSB(sampleValue, file);
   }
+
 }
+
+void convertFloatArrayToShort(float float_Array[], int size, short short_Array[])
+{
+  for (int i = 0; i < size; i++)
+  {
+    short_Array[i] = (short)( float_Array[i] * (SHRT_MAX -1));
+  }
+}
+/*
+
+Likely will need removal for production
+
+void writeWavFileContent(short data_short[], int channels, int numberSamples, double outputRate, FILE *file)
+{/*
+  for (int i = 0; i < numberSamples; i++)
+  {
+
+  }
+  int numberOfSamples = numberSamples;
+
+  float PI = 3.14159265358979;
+
+  int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
+  double angularFrequency = 2.0 * PI * 440.0;
+  double increment = angularFrequency / SAMPLE_RATE;
+  for (int i = 0; i < numberOfSamples; i++) {
+      /*  Calculate the sine wave in the range -1.0 to + 1.0  */
+      //double value = data_short[i];
+
+      /*  Convert the value to a 16-bit integer, with the
+          range -maximumValue to + maximumValue.  The calculated
+          value is rounded to the nearest integer  */
+      //short int sampleValue = rint(value * maximumValue);
+
+      /*  Write out the sample as a 16-bit (short) integer
+          in little-endian format  */
+      //fwriteShortLSB(sampleValue, file);
+  //}
+//}
 
 
 
@@ -496,11 +586,24 @@ void testIdentityConvole()
   int sizeOutput = sizeOfInputData + 1 - 1;
   float outputData[sizeOutput];
 
-  //convolve(inputData, sizeOfInputData, outputData, 1, outputData, sizeOutput);
+  convolve(inputData, sizeOfInputData, ir_data, 1, outputData, sizeOutput);
+  int test = 1;
+  for (int i = 0; i < 10; i++)
+  {
+    if (inputData[i] != outputData[i])
+    {
+      printf("test failed expected %f but got %f... on i is %i \n", inputData[i], outputData[i], i);
+      test = 0;
+    }
+  }
 
+  if (test == 1)
+  {
+    printf("Test has succeeded \n");
+  }
 
-  outputFile = fopen("test6.wav", "w");
-  writeToWaveFile(outputData, 1, sizeOutput, (double) inputAudioHeader.sampleRate, outputFile);
+  outputFile = fopen("testID.wav", "w");
+  writeToWaveFile(inputData, 1, sizeOfInputData, (double) inputAudioHeader.sampleRate, outputFile);
 
 
   printf("done running the test code for test identity Convolve \n");
@@ -518,8 +621,6 @@ int main(int argc, char * argv[])
     testIdentityConvole();
   }
 
-
-  testConvolve2();
   /*
   Testing splitting an int
   int num = 0b00110010;
@@ -534,7 +635,7 @@ int main(int argc, char * argv[])
   FILE* inputFile;
   FILE* IRFile;
   FILE* outputFile;
-  int debug = 0;
+  int debug = 1;
   if (argc > 2)
   {
 	  //This block of code initializes the inputFile data
@@ -614,15 +715,18 @@ int main(int argc, char * argv[])
       {
         if (inputData[i] > 1.0 || inputData[i] < -1.0)
         {
+          inputData[i] = 1.0;
           printf("normalization failed... inputData[%u] is %f \n", i ,inputData[i] );
 
         }
       }
     }
 
+
       int sizeOutput = sizeOfInputData + numSamplesIR -1;
       printf("The sizeOutput is %u", sizeOutput);
       float outputData[sizeOutput];
+
 
 
       printf("Starting the convolution \n");
@@ -636,12 +740,18 @@ int main(int argc, char * argv[])
 
 
 
-      divideArrayByItsCurrentMax(outputData, sizeOutput);
+      //divideArrayByItsCurrentMax(outputData, sizeOutput);
       //denormalizeArray(outputData, sizeOutput);
+      printf("The data has been renormalized");
+      if (debug)
+      {
+        //print_vector("Data has been renormalized",outputData, sizeOutput);
+      }
 
       //print_vector("Just a test...", outputData, sizeOutput);
 
       writeToWaveFile(outputData, 1, sizeOutput, (double) IR_AudioHeader.sampleRate, outputFile);
+
 
 
 
