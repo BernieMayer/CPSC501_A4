@@ -188,61 +188,75 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
 
   int numSegmentsX = 2;
 
-  float padded_h[SEGMENT_SIZE];
+  double * padded_h = (double * ) malloc(sizeof(double) * 2 * SEGMENT_SIZE);
+  double * segmentArray_x = (double * ) malloc(sizeof(double) * 2 * SEGMENT_SIZE);
 
 
-  printf("The value is %f \n", padded_h[0]);
-  printf("The segmentSize is %i and the number of segments is %i \n", SEGMENT_SIZE, numSegmentsX);
-  for (int j = 0; j < SEGMENT_SIZE; j++)
+  //take all of h into padded_h and for each element in h add a 0 to pad it
+  for (int j = 0; j < 2 * SEGMENT_SIZE; j++)
   {
     //Pad the h array so that it is SEGMENT_SIZE
     if (j < M)
-      padded_h[j] = h[j];
+      padded_h[j] = (double) h[j];
     else
-      padded_h[j] = 0.0f;
+      padded_h[j] = (double) 0.0f;
   }
 
-  float segmentArray_x[numSegmentsX][SEGMENT_SIZE]; //Index into this array
-  //By indexing into the segment then from each segment into each
 
-  //printf("The size of the segmentArray_x is %i \n", segmentArray_x[0][0]);
-
-  //Fill the segmentArray_x
-  int totalItemsCopied = 0; //Keeps track of how many items have
-  //been copied to the new array. Which means 2 * toatalItemsCopied
-  //have been made
-  for (int i = 0; i < numSegmentsX; i++)
-  {
-    for (int j = 0; j < SEGMENT_SIZE; j++)
-    {
-      if (j < SEGMENT_SIZE/2) {
-        segmentArray_x[i][j] = 0.0;
-        totalItemsCopied++;
-      }
-      else
-        segmentArray_x[i][j] = 0.0;
-    }
-
-  }
-
-  float segmentArray_y[numSegmentsX][SEGMENT_SIZE]; //Output segments
 
   //convolute the arrays
-
+  double * results = (double *) malloc(sizeof(double) * SEGMENT_SIZE * 2);
+  int baseIndex = 0;
   for (int i = 0; i < numSegmentsX; i++)
   {
+    four1(padded_h - 1,SEGMENT_SIZE * 2, 1);
+    for (int j = 0; j < 2 * SEGMENT_SIZE; j++)
+    {
+      if ( j < SEGMENT_SIZE)
+        segmentArray_x[j] = x[baseIndex + j];
+      else
+        segmentArray_x[j] = 0.0;
+    }
+    //baseIndex += SEGMENT_SIZE - 1;
+    four1(segmentArray_x - 1, SEGMENT_SIZE * 2, 1);
+
+    for (int k = 0; k < SEGMENT_SIZE; k+=2)
+    {
+      float a = segmentArray_x[k];  //real component
+      float b = segmentArray_x[k + 1];  //imaginary component
+
+      float c = padded_h[k];  //real component
+      float d = padded_h[k+1];  //imaginary compenent
+
+      results[k] = a * c - b * d;
+      results[k + 1] = c * b + a * d;
+
+      four1(results -1, SEGMENT_SIZE * 2, -1);
+    }
+    for (int r = 0; r < SEGMENT_SIZE * 2; r++)
+    {
+      if ((baseIndex + r) < P && (baseIndex + 1 + r) < P) {
+        y[baseIndex + r] += results[r];
+        y[baseIndex + r + 1] += results[r + 1];
+      }
+    }
+    baseIndex += SEGMENT_SIZE - 1;
+  }
+
+  //for (int i = 0; i < numSegmentsX; i++)
+  //{
     //Apply the fast fourier transform on the array
     //note the code below assumes an array starting at 1.
     // By subtracting by 1 we are getting the right data
-    four1(segmentArray_x[i] - 1, SEGMENT_SIZE, 1);
+    //four1(segmentArray_x - 1,2* SEGMENT_SIZE, 1);
 
     //Apply the FFT to the IR data
-    four1(padded_h, SEGMENT_SIZE, 1);
+    //four1(padded_h, 2* SEGMENT_SIZE, 1);
 
     //convolve the data...
     //Reminder (a + b * i) * (c + d * i) = a * c + c * b * i + a * d * i - b * d
     // where i is an imaginary number
-
+	/*
     for (int j = 0; j < SEGMENT_SIZE; j+=2)
     {
       float a = segmentArray_x[i][j];
@@ -260,30 +274,27 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
       //Re convolve the data back to normal
       four1(segmentArray_y[i] - 1, SEGMENT_SIZE, -1);
     }
+	*/
+  //}
+	printf("Why ?? \n");
 
+	//free(padded_h);
 
   }
 
 
-  //Apply Overlap add method
 
-  for (int i = 0; i < (numSegmentsX - 1); i++)
-  {
-    for (int j = 0; j < SEGMENT_SIZE && ( i * SEGMENT_SIZE + j) < P; j++)
-    {
-      if (j < SEGMENT_SIZE/2)
-        y[i * SEGMENT_SIZE + j ] = segmentArray_y[i][j];
-      else
-        y[i * SEGMENT_SIZE + j ] = segmentArray_y[i][j] + segmentArray_y[i + 1][j -SEGMENT_SIZE/2];
-    }
-  }
 
-}
+
+
+
 
 //This convolve function is based on the one in the CPSC 501 lecture slides
 void convolve(float x[], int N, float h[], int M, float y[], int P)
 {
   int n,m;
+
+  printf("N is %i and M is %i and P is %i \n", N, M,P);
 
   /* Clear output buffer y[] */
   for ( n = 0; n < P; n++)
@@ -689,7 +700,7 @@ void testIdentityConvole()
 
   struct AudioFileHeader inputAudioHeader = readHeaderOfAudioFile(inputFile);
 
-  int sizeOfInputData = inputAudioHeader.subchunk2Size/( (float)(inputAudioHeader.bitsPerSample/ 8) * inputAudioHeader.numChannels); // Also is the number of Samples
+  unsigned int sizeOfInputData = inputAudioHeader.subchunk2Size/( (float)(inputAudioHeader.bitsPerSample/ 8) * inputAudioHeader.numChannels); // Also is the number of Samples
   short inputDataShort[sizeOfInputData];
 
 
@@ -772,7 +783,7 @@ int main(int argc, char * argv[])
       //as the program see fit
       // this data is stored in a structure.
       struct AudioFileHeader inputAudioHeader = readHeaderOfAudioFile(inputFile);
-	    int sizeOfInputData = inputAudioHeader.subchunk2Size/((float)(inputAudioHeader.bitsPerSample/8) * inputAudioHeader.numChannels); // Also is the number of Samples
+	  int sizeOfInputData = inputAudioHeader.subchunk2Size/((float)(inputAudioHeader.bitsPerSample/8) * inputAudioHeader.numChannels); // Also is the number of Samples
       //int sizeOfInputData = 100;
 
       if (debug) {
@@ -783,7 +794,7 @@ int main(int argc, char * argv[])
       printf("The subchunk2ID is %u \n", inputAudioHeader.subchunk2ID);
       printf("The size of the input file is %u bytes \n", inputAudioHeader.subchunk2Size);
       }
-      short inputDataShort[sizeOfInputData];
+      short* inputDataShort = (short *) malloc(sizeof(short) *sizeOfInputData);
       //float inputData[sizeOfInputData];
       readFileDataIntoArray(inputDataShort, sizeOfInputData, inputAudioHeader, inputFile);
 
@@ -850,13 +861,19 @@ int main(int argc, char * argv[])
 
       int sizeOutput = sizeOfInputData + numSamplesIR -1;
       printf("The sizeOutput is %u", sizeOutput);
-      float outputData[sizeOutput];
+      float* outputData = (float *) malloc(sizeof(float) *sizeOutput);
 
 
 
       printf("Starting the convolution \n");
       printf("sizeOutput is %u while sizeOfInputData is %u and numSamplesIR is %u", sizeOutput, sizeOfInputData, numSamplesIR);
       convolveFFT(inputData, sizeOfInputData, IR_Data, numSamplesIR, outputData, sizeOutput);
+
+      long finishTime = time(NULL);
+
+
+
+      printf("The convolution took %li ", finishTime - startTime);
 
       char* outputFileName = argv[3];
       outputFile = fopen( outputFileName, "w");
@@ -881,16 +898,16 @@ int main(int argc, char * argv[])
 
 
 
-
       printf("Done the convolution \n");
 
-      fclose(inputFile);
-      fclose(IRFile);
-      fclose(outputFile);
-      long finishTime = time(NULL);
+      //fclose(inputFile);
+      //fclose(IRFile);
+      //fclose(outputFile);
 
-      printf("The convolution took %li ", finishTime - startTime);
 
+
+      free(inputDataShort);
+      free(outputData);
 
       //Handle the output file creation here...
 
