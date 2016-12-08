@@ -179,21 +179,20 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
 
   printf("Starting convolution using FFT \n");
 
-  const int SEGMENT_SIZE = pow(2, 14);
+  int SEGMENT_SIZE = pow(2, 14);
 
   if (M > SEGMENT_SIZE)
   {
     printf("The segment size needs to be changed since it will not fill the entire IR \n");
   }
 
-  int numSegmentsX = ceil((double)2 * N/ (double) SEGMENT_SIZE);
-
-  float segmentArray_x[numSegmentsX][SEGMENT_SIZE]; //Index into this array
-  //By indexing into the segment then from each segment into each
-  float segmentArray_y[numSegmentsX][SEGMENT_SIZE]; //Output segments
-
+  int numSegmentsX = 2;
 
   float padded_h[SEGMENT_SIZE];
+
+
+  printf("The value is %f \n", padded_h[0]);
+  printf("The segmentSize is %i and the number of segments is %i \n", SEGMENT_SIZE, numSegmentsX);
   for (int j = 0; j < SEGMENT_SIZE; j++)
   {
     //Pad the h array so that it is SEGMENT_SIZE
@@ -202,6 +201,11 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
     else
       padded_h[j] = 0.0f;
   }
+
+  float segmentArray_x[numSegmentsX][SEGMENT_SIZE]; //Index into this array
+  //By indexing into the segment then from each segment into each
+
+  //printf("The size of the segmentArray_x is %i \n", segmentArray_x[0][0]);
 
   //Fill the segmentArray_x
   int totalItemsCopied = 0; //Keeps track of how many items have
@@ -212,7 +216,7 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
     for (int j = 0; j < SEGMENT_SIZE; j++)
     {
       if (j < SEGMENT_SIZE/2) {
-        segmentArray_x[i][j] = x[totalItemsCopied];
+        segmentArray_x[i][j] = 0.0;
         totalItemsCopied++;
       }
       else
@@ -220,6 +224,8 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
     }
 
   }
+
+  float segmentArray_y[numSegmentsX][SEGMENT_SIZE]; //Output segments
 
   //convolute the arrays
 
