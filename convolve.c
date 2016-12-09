@@ -873,9 +873,9 @@ void testProfile()
 
 int main(int argc, char * argv[])
 {
-    //testProfile();
+    testProfile();
 
-    //return 0;
+    return 0;
     //testIdentityConvole();
 
 
