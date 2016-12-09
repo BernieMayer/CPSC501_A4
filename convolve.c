@@ -218,12 +218,13 @@ void convolveFFT(double x[], int N, double h[], int M, double y[], int P)
     y[i] = 0.0;
 
 
+    four1(padded_h - 1,SEGMENT_SIZE, 1);
+
   //convolute the arrays
   double * results = (double *) malloc(sizeof(double) * SEGMENT_SIZE * 2);
   int baseIndex = 0;
   for (int i = 0; i < numSegmentsX; i++)
   {
-    four1(padded_h - 1,SEGMENT_SIZE, 1);
     for (int j = 0; j < 2 * SEGMENT_SIZE; j++)
     {
       if ( j < SEGMENT_SIZE)
