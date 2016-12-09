@@ -25,7 +25,9 @@ long getFileSize(FILE* file);
 void readFile(float fileData[], int size, FILE* file, int offset);
 void readFileDataIntoArray(short inputData[],int sizeOfInputData,  struct AudioFileHeader header, FILE* file);
 void normalizeArray(float array[], int size);
+void normalizeArrayDouble(double array[], int size);
 void convertShortArrayToFloat(short short_Array[], int size,  float float_Array[]);
+void convertShortArrayToDouble(short short_Array[], int size, double double_Array[]);
 
 void divideArrayByItsCurrentMax(float array[], int size);
 void denormalizeArray(float array[], int size);
@@ -80,6 +82,16 @@ void convertShortArrayToFloat(short short_Array[], int size, float float_Array[]
     float_Array[i] = (float) short_Array[i];
   }
 
+}
+
+void convertShortArrayToDouble(short short_Array[], int size, double double_Array[])
+{
+  int i = 0;
+
+  for (int i = 0; i < size; i++)
+  {
+    double_Array[i] = (double) short_Array[i];
+  }
 }
 
 struct AudioFileHeader readHeaderOfAudioFile(FILE* file)
@@ -171,7 +183,7 @@ void four1(double data[], int nn, int isign)
 
 //Convolve function using Fast Fourier Transform
 //(might want to convoert to doubles)
-void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
+void convolveFFT(double x[], int N, double h[], int M, double y[], int P)
 {
 
   //make segments
@@ -202,6 +214,8 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
       padded_h[j] = (double) 0.0f;
   }
 
+  for (int i = 0; i < P; i++)
+    y[i] = 0.0;
 
 
   //convolute the arrays
@@ -209,7 +223,7 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
   int baseIndex = 0;
   for (int i = 0; i < numSegmentsX; i++)
   {
-    four1(padded_h - 1,SEGMENT_SIZE * 2, 1);
+    four1(padded_h - 1,SEGMENT_SIZE, 1);
     for (int j = 0; j < 2 * SEGMENT_SIZE; j++)
     {
       if ( j < SEGMENT_SIZE)
@@ -218,7 +232,7 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
         segmentArray_x[j] = 0.0;
     }
     //baseIndex += SEGMENT_SIZE - 1;
-    four1(segmentArray_x - 1, SEGMENT_SIZE * 2, 1);
+    four1(segmentArray_x - 1, SEGMENT_SIZE, 1);
 
     for (int k = 0; k < SEGMENT_SIZE; k+=2)
     {
@@ -231,18 +245,20 @@ void convolveFFT(float x[], int N, float h[], int M, float y[], int P)
       results[k] = a * c - b * d;
       results[k + 1] = c * b + a * d;
 
-      four1(results -1, SEGMENT_SIZE * 2, -1);
+
+
+      four1(results -1, SEGMENT_SIZE, -1);
     }
-    for (int r = 0; r < SEGMENT_SIZE * 2; r++)
+    for (int r = 0; r < SEGMENT_SIZE * 2; r+=2)
     {
       if ((baseIndex + r) < P && (baseIndex + 1 + r) < P) {
-        y[baseIndex + r] += results[r];
-        y[baseIndex + r + 1] += results[r + 1];
+
+        y[baseIndex + r] += (float) results[r];
+        y[baseIndex + r + 1] += (float) results[r + 1];
       }
     }
     baseIndex += SEGMENT_SIZE - 1;
   }
-
   //for (int i = 0; i < numSegmentsX; i++)
   //{
     //Apply the fast fourier transform on the array
@@ -376,8 +392,25 @@ void normalizeArray(float array[], int size)
 
 	}
 
+}
 
+void normalizeArrayDouble(double array[], int size)
+{
+  int i;
 
+  for (i = 0; i < size; i++)
+  {
+
+    double temp = (double)array[i]/( (double)(SHRT_MAX));
+    if (temp > 1.0)
+    {
+      array[i] = 1.0;
+    } else {
+      array[i] = -1.0;
+    }
+    array[i] = temp;
+
+  }
 }
 
 //This function will divide the array by the current absolute maximum of the
@@ -628,7 +661,7 @@ void testConvolve()
 
   output_size = input_size + impulse_size - 1;
 
-  convolve(input_signal, input_size, impulse_response, impulse_size,
+  convolveFFT(input_signal, input_size, impulse_response, impulse_size,
      output_signal, output_size);
 
   int result = 1;
@@ -689,73 +722,98 @@ void print_vector(char *title, float x[], int N)
     printf("%-d\t\t%f\n", i, x[i]);
 }
 
-void testIdentityConvole()
+void testProfile()
 {
+  printf("Profiling the program \n");
   FILE* inputFile;
   FILE* IRFile;
   FILE* outputFile;
 
 
-  inputFile = fopen("test.wav", "r");
+  inputFile = fopen("GuitarDry.wav", "r");
+  IRFile = fopen("l960taj_mahal_deep6.wav", "r");
+  outputFile = fopen("profile.wav", "w+");
 
-  struct AudioFileHeader inputAudioHeader = readHeaderOfAudioFile(inputFile);
+  //run the base program ...
+  for (int i = 0;  i < 10; i++) {
+    printf("Running the program for the %i th time", i);
+    //seek the files to the be used
+    fseek(inputFile, 0, SEEK_SET);
+    fseek(IRFile, 0, SEEK_SET);
+    fseek(outputFile, 0, SEEK_SET);
 
-  unsigned int sizeOfInputData = inputAudioHeader.subchunk2Size/( (float)(inputAudioHeader.bitsPerSample/ 8) * inputAudioHeader.numChannels); // Also is the number of Samples
-  short inputDataShort[sizeOfInputData];
+    struct AudioFileHeader inputAudioHeader = readHeaderOfAudioFile(inputFile);
 
-
-  printf("The number of bits per sample is %i", inputAudioHeader.bitsPerSample);
-  printf("The size of a short is %i", sizeof(short));
-  printf("The size of subchunk2Size is %i", inputAudioHeader.subchunk2Size);
-
-
-  readFileDataIntoArray(inputDataShort, sizeOfInputData, inputAudioHeader, inputFile);
-
-  float inputData[sizeOfInputData];
-  convertShortArrayToFloat(inputDataShort, sizeOfInputData, inputData);
-  normalizeArray(inputData, sizeOfInputData);
+    unsigned int sizeOfInputData = inputAudioHeader.subchunk2Size/( (float)(inputAudioHeader.bitsPerSample/ 8) * inputAudioHeader.numChannels); // Also is the number of Samples
+    short * inputDataShort  = (short *) malloc(sizeof(short) * sizeOfInputData);
 
 
-  float ir_data[1];
-  ir_data[0] = 1.0;
+    //printf("The number of bits per sample is %i", inputAudioHeader.bitsPerSample);
+    //printf("The size of a short is %i", sizeof(short));
+    //printf("The size of subchunk2Size is %i", inputAudioHeader.subchunk2Size);
 
-  int sizeOutput = sizeOfInputData + 1 - 1;
-  float outputData[sizeOutput];
 
-  convolve(inputData, sizeOfInputData, ir_data, 1, outputData, sizeOutput);
-  int test = 1;
-  for (int i = 0; i < 10; i++)
-  {
-    if (inputData[i] != outputData[i])
+    readFileDataIntoArray(inputDataShort, sizeOfInputData, inputAudioHeader, inputFile);
+
+    double* inputData = (double *) malloc( sizeof(double) * sizeOfInputData);
+    convertShortArrayToDouble(inputDataShort, sizeOfInputData, inputData);
+    normalizeArray(inputData, sizeOfInputData);
+
+    struct AudioFileHeader ir_AudioHeader = readHeaderOfAudioFile(IRFile);
+
+    unsigned int sizeOfIRData = ir_AudioHeader.subchunk2Size/(2.0f);  //Should be non magic number
+    short* ir_Data_short = (short *) malloc(sizeof(short) * sizeOfIRData);
+    double* ir_data = (double *) malloc(sizeof(double) * sizeOfIRData);
+    convertShortArrayToDouble(ir_Data_short, sizeOfIRData, ir_data);
+
+
+    int sizeOutput = sizeOfInputData + sizeOfIRData - 1;
+    double * outputData = (double *) malloc(sizeof(double) * sizeOutput);
+
+    convolveFFT(inputData, sizeOfInputData, ir_data, sizeOfIRData, outputData, sizeOutput);
+    int test = 1;
+    for (int i = 0; i < 10; i++)
     {
-      printf("test failed expected %f but got %f... on i is %i \n", inputData[i], outputData[i], i);
-      test = 0;
+      if (inputData[i] != outputData[i])
+      {
+        printf("test failed expected %f but got %f... on i is %i \n", inputData[i], outputData[i], i);
+        test = 0;
+      }
     }
+
+    if (test == 1)
+    {
+      printf("Test has succeeded \n");
+    }
+
+    outputFile = fopen("testID.wav", "w");
+    writeToWaveFile(inputData, 1, sizeOutput, (double) inputAudioHeader.sampleRate, outputFile);
+
+
+    //free up any memory used
+
+
+    free(ir_Data_short);
+    free(ir_data);
   }
-
-  if (test == 1)
-  {
-    printf("Test has succeeded \n");
-  }
-
-  outputFile = fopen("testID.wav", "w");
-  writeToWaveFile(inputData, 1, sizeOfInputData, (double) inputAudioHeader.sampleRate, outputFile);
-
-
-  printf("done running the test code for test identity Convolve \n");
 
   fclose(inputFile);
+  fclose(IRFile);
   fclose(outputFile);
 
 }
 
+
+
 int main(int argc, char * argv[])
 {
+    testProfile();
 
-  if (strcmp(argv[1], "-d") == 0)
-  {
-    testIdentityConvole();
-  }
+    return 0;
+    //testIdentityConvole();
+
+
+
 
   /*
   Testing splitting an int
@@ -800,9 +858,9 @@ int main(int argc, char * argv[])
 
 
 
-      float inputData[sizeOfInputData];
+      double* inputData = (double * ) malloc(sizeof(double) * sizeOfInputData);
 
-      convertShortArrayToFloat(inputDataShort, sizeOfInputData, inputData);
+      convertShortArrayToDouble(inputDataShort, sizeOfInputData, inputData);
 
       //This block of code initializes the IR file data
 
@@ -824,7 +882,7 @@ int main(int argc, char * argv[])
       printf("The number of sameples is %u\n", numSamplesIR);
       }
       short IR_Data_short[numSamplesIR];
-      float IR_Data[numSamplesIR];
+      double IR_Data[numSamplesIR];
 
 
 
@@ -832,7 +890,7 @@ int main(int argc, char * argv[])
       readFileDataIntoArray(IR_Data_short, numSamplesIR, inputAudioHeader, inputFile);
 
 
-      convertShortArrayToFloat(IR_Data_short, numSamplesIR, IR_Data);
+      convertShortArrayToDouble(IR_Data_short, numSamplesIR, IR_Data);
 
 
 
@@ -843,8 +901,8 @@ int main(int argc, char * argv[])
 
 
       //normalize the arrays to be between 1 and -1..
-      normalizeArray(inputData, sizeOfInputData);
-      normalizeArray(IR_Data, numSamplesIR);
+      normalizeArrayDouble(inputData, sizeOfInputData);
+      normalizeArrayDouble(IR_Data, numSamplesIR);
 
       if (debug) {
       for (int i = 0; i < sizeOfInputData; i++)
@@ -861,7 +919,7 @@ int main(int argc, char * argv[])
 
       int sizeOutput = sizeOfInputData + numSamplesIR -1;
       printf("The sizeOutput is %u", sizeOutput);
-      float* outputData = (float *) malloc(sizeof(float) *sizeOutput);
+      double* outputData = (double *) malloc(sizeof(double) *sizeOutput);
 
 
 
@@ -882,7 +940,7 @@ int main(int argc, char * argv[])
 
 
 
-      //divideArrayByItsCurrentMax(outputData, sizeOutput);
+      divideArrayByItsCurrentMax(outputData, sizeOutput);
       //denormalizeArray(outputData, sizeOutput);
       printf("The data has been renormalized");
       if (debug)
