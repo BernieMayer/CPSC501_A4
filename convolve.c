@@ -18,6 +18,8 @@
 /*  Standard sample size in bytes  */
 #define BYTES_PER_SAMPLE  (BITS_PER_SAMPLE/8)
 
+void convertFloatArrayToShortArray(float float_array[], int size, short short_array[]);
+void convertDoubleArrayToShortArray(double double_Array[], int size, short short_array[]);
 struct AudioFileHeader readHeaderOfAudioFile(FILE* file);
 void testWrite();
 void convolve(float x[], int N, float h[], int M, float y[], int P);
@@ -468,7 +470,7 @@ void writeToWaveFileDouble(double data[], int channels, int numberSamples, doubl
 
 void writeWavFileContentDouble(double data[], int numberSamples, FILE* file)
 {
-
+  /*
   int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
   for (int i = 0;  i < numberSamples; i++)
   {
@@ -476,12 +478,29 @@ void writeWavFileContentDouble(double data[], int numberSamples, FILE* file)
     short int sampleValue = rint(value * 0.5f * maximumValue);
     //printf("sampleValue is %f");
     fwriteShortLSB(sampleValue, file);
-  }
+  }*/
+  short short_data[numberSamples];
+  convertDoubleArrayToShortArray(data, numberSamples, short_data);
 
+  fwrite(short_data, sizeof(short), sizeof(short_data), file);
+
+
+}
+
+void convertDoubleArrayToShortArray(double double_data[], int size, short short_data[])
+{
+  int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
+  for (int i = 0;  i < size; i++)
+  {
+    double value = double_data[i];
+    short sampleValue = rint(value * 0.5f * maximumValue);  //The 0.5 is to make it sound proper
+    short_data[i] = sampleValue;
+  }
 }
 
 void writeWavFileContent(float data[], int numberSamples,FILE* file )
 {
+  /*
   int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
   for (int i = 0;  i < numberSamples; i++)
   {
@@ -489,17 +508,36 @@ void writeWavFileContent(float data[], int numberSamples,FILE* file )
     short int sampleValue = rint(value * 0.5f * maximumValue);
     //printf("sampleValue is %f");
     fwriteShortLSB(sampleValue, file);
-  }
+  }*/
+  short short_data[numberSamples];
+
+  convertFloatArrayToShortArray(data, numberSamples, short_data);
+
+  fwrite(short_data, sizeof(short), sizeof(short_data), file);
 
 }
 
+
+//Just to make file writing easier convert the array to short array
+void convertFloatArrayToShortArray(float float_array[], int size, short short_array[])
+{
+  int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
+  for (int i = 0;  i < size; i++)
+  {
+    double value = float_array[i];
+    short sampleValue = rint(value * 0.5f * maximumValue);  //The 0.5 is to make it sound proper
+    short_array[i] = sampleValue;
+  }
+}
+
+/*
 void convertFloatArrayToShort(float float_Array[], int size, short short_Array[])
 {
   for (int i = 0; i < size; i++)
   {
     short_Array[i] = (short)( float_Array[i] * (SHRT_MAX -1));
   }
-}
+}*/
 /*
 
 Likely will need removal for production
@@ -763,7 +801,7 @@ void testProfile()
   outputFile = fopen("profile.wav", "w+");
 
   //run the base program ...
-  for (int i = 0;  i < 10; i++) {
+  for (int i = 0;  i < 1000; i++) {
     printf("Running the program for the %i th time", i);
     //seek the files to the be used
     fseek(inputFile, 0, SEEK_SET);
@@ -910,7 +948,7 @@ int main(int argc, char * argv[])
       printf("The number of sameples is %u\n", numSamplesIR);
       }
       short IR_Data_short[numSamplesIR];
-      double IR_Data[numSamplesIR];
+      float IR_Data[numSamplesIR];
 
 
 
@@ -918,7 +956,7 @@ int main(int argc, char * argv[])
       readFileDataIntoArray(IR_Data_short, numSamplesIR, inputAudioHeader, inputFile);
 
 
-      convertShortArrayToDouble(IR_Data_short, numSamplesIR, IR_Data);
+      convertShortArrayToFloat(IR_Data_short, numSamplesIR, IR_Data);
 
 
 
