@@ -166,8 +166,10 @@ void four1(double data[], int nn, int isign)
 	for (m = 1; m < mmax; m += 2) {
 	    for (i = m; i <= n; i += istep) {
 		j = i + mmax;
-		tempr = wr * data[j] - wi * data[j+1];
-		tempi = wr * data[j+1] + wi * data[j];
+    double data_1 = data[j];
+    double data_2 = data[j + 1];
+		tempr = wr * data_1 - wi * data_2;
+		tempi = wr * data_2 + wi * data_1;
 		data[j] = data[i] - tempr;
 		data[j+1] = data[i+1] - tempi;
 		data[i] += tempr;
@@ -725,7 +727,7 @@ void print_vector(char *title, float x[], int N)
 
 void testProfile()
 {
-  printf("Profiling the program \n");
+  printf("Profiling the program  3.0 \n");
   FILE* inputFile;
   FILE* IRFile;
   FILE* outputFile;
