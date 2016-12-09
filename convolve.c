@@ -34,6 +34,7 @@ void denormalizeArray(float array[], int size);
 void writeToWaveFile(float data[], int channels, int numberSamples, double outputRate, FILE* file);
 void writeWaveFileHeader(int channels, int numberSamples, double outputRate, FILE *outputFile);
 void writeWavFileContent(float data[], int numberSamples, FILE* file );
+void writeWavFileContentDouble(double data[], int numberSamples, FILE* file);
 size_t fwriteIntLSB(int data, FILE *stream);
 size_t fwriteShortLSB(short int data, FILE *stream);
 void print_vector(char *title, float x[], int N);
@@ -250,8 +251,8 @@ void convolveFFT(double x[], int N, double h[], int M, double y[], int P)
 
 
 
-      four1(results -1, SEGMENT_SIZE, -1);
     }
+    four1(results -1, SEGMENT_SIZE, -1);
     for (int r = 0; r < SEGMENT_SIZE * 2; r+=2)
     {
       if ((baseIndex + r) < P && (baseIndex + 1 + r) < P) {
@@ -295,7 +296,7 @@ void convolveFFT(double x[], int N, double h[], int M, double y[], int P)
     }
 	*/
   //}
-	printf("Why ?? \n");
+
 
 	//free(padded_h);
 
@@ -453,6 +454,30 @@ void writeToWaveFile(float data[], int channels, int numberSamples, double outpu
   //write to the file the data content
   printf("done making the header \n");
   writeWavFileContent(data, numberSamples, file);
+}
+
+//similar to writeToWaveFile just uses double instead of float
+void writeToWaveFileDouble(double data[], int channels, int numberSamples, double outputRate, FILE* file)
+{
+  writeWaveFileHeader(channels, numberSamples, outputRate, file);
+
+  printf("Done making the header \n");
+  writeWavFileContentDouble(data, numberSamples, file);
+}
+
+
+void writeWavFileContentDouble(double data[], int numberSamples, FILE* file)
+{
+
+  int maximumValue = (int)pow(2.0, (double)BITS_PER_SAMPLE - 1) - 1;
+  for (int i = 0;  i < numberSamples; i++)
+  {
+    double value = data[i];
+    short int sampleValue = rint(value * 0.5f * maximumValue);
+    //printf("sampleValue is %f");
+    fwriteShortLSB(sampleValue, file);
+  }
+
 }
 
 void writeWavFileContent(float data[], int numberSamples,FILE* file )
@@ -790,7 +815,7 @@ void testProfile()
     }
 
     outputFile = fopen("testID.wav", "w");
-    writeToWaveFile(inputData, 1, sizeOutput, (double) inputAudioHeader.sampleRate, outputFile);
+    writeToWaveFileDouble(inputData, 1, sizeOutput, (double) inputAudioHeader.sampleRate, outputFile);
 
 
     //free up any memory used
@@ -810,9 +835,9 @@ void testProfile()
 
 int main(int argc, char * argv[])
 {
-    testProfile();
+    //testProfile();
 
-    return 0;
+    //return 0;
     //testIdentityConvole();
 
 
@@ -953,7 +978,7 @@ int main(int argc, char * argv[])
 
       //print_vector("Just a test...", outputData, sizeOutput);
 
-      writeToWaveFile(outputData, 1, sizeOutput, (double) IR_AudioHeader.sampleRate, outputFile);
+      writeToWaveFileDouble(outputData, 1, sizeOutput, (double) IR_AudioHeader.sampleRate, outputFile);
 
 
 
